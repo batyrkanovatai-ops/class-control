@@ -1,12 +1,23 @@
 import React, { useState, useEffect } from 'react';
-import { LayoutDashboard, Users, Award } from 'lucide-react';
+import { LayoutDashboard, Users, Award, Lock } from 'lucide-react';
 
 export default function App() {
   const [students, setStudents] = useState([]);
   const [activeTab, setActiveTab] = useState('dashboard');
-  const [role, setRole] = useState('STAROSTA');
+  const [role, setRole] = useState('STUDENT');
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [explanationText, setExplanationText] = useState('');
+
+  // Модалка для ввода пароля
+  const [showPassModal, setShowPassModal] = useState(false);
+  const [targetRole, setTargetRole] = useState('');
+  const [pinInput, setPinInput] = useState('');
+  const [pinError, setPinError] = useState(false);
+
+  const PASSWORDS = {
+    STAROSTA: '67',
+    TEACHER: '10293'
+  };
 
   useEffect(() => {
     fetch('/api/students')
@@ -14,6 +25,27 @@ export default function App() {
       .then(data => setStudents(data))
       .catch(err => console.error(err));
   }, []);
+
+  const handleRoleChange = (newRole) => {
+    if (newRole === 'STUDENT') {
+      setRole('STUDENT');
+    } else {
+      setTargetRole(newRole);
+      setPinInput('');
+      setPinError(false);
+      setShowPassModal(true);
+    }
+  };
+
+  const verifyPin = () => {
+    if (pinInput === PASSWORDS[targetRole]) {
+      setRole(targetRole);
+      setShowPassModal(false);
+      setPinInput('');
+    } else {
+      setPinError(true);
+    }
+  };
 
   const updateAttendance = (studentId, status, lessonNumber = 1) => {
     fetch('/api/attendance', {
@@ -50,6 +82,7 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-[#030712] text-slate-100 pb-20 md:pb-0 md:pl-64">
+      {/* Боковая панель */}
       <aside className="hidden md:flex flex-col w-64 h-screen fixed left-0 top-0 bg-[#0B0F19] border-r border-slate-800 p-4 justify-between">
         <div>
           <div className="flex items-center justify-between mb-8">
@@ -78,14 +111,31 @@ export default function App() {
         </div>
 
         <div className="pt-4 border-t border-slate-800">
-          <p className="text-xs text-slate-400 mb-2">Переключить роль:</p>
-          <select value={role} onChange={e => setRole(e.target.value)} className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs text-slate-200">
+          <p className="text-xs text-slate-400 mb-2">Роль:</p>
+          <select value={role} onChange={e => handleRoleChange(e.target.value)} className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs text-slate-200">
             <option value="STUDENT">Ученик</option>
-            <option value="STAROSTA">Староста</option>
-            <option value="TEACHER">Учитель</option>
+            <option value="STAROSTA">Староста 🔒</option>
+            <option value="TEACHER">Учитель 🔒</option>
           </select>
         </div>
       </aside>
+
+      {/* Мобильная навигация */}
+      <div className="md:hidden bg-[#0B0F19] border-b border-slate-800 p-4">
+        <div className="flex justify-between items-center mb-4">
+          <h1 className="text-lg font-bold text-indigo-400">CLASS CONTROL</h1>
+          <select value={role} onChange={e => handleRoleChange(e.target.value)} className="bg-slate-900 border border-slate-700 rounded-lg p-1.5 text-xs text-slate-200">
+            <option value="STUDENT">Ученик</option>
+            <option value="STAROSTA">Староста 🔒</option>
+            <option value="TEACHER">Учитель 🔒</option>
+          </select>
+        </div>
+        <div className="flex justify-around text-xs">
+          <button onClick={() => setActiveTab('dashboard')} className={activeTab === 'dashboard' ? 'text-indigo-400 font-bold' : 'text-slate-400'}>Главная</button>
+          <button onClick={() => setActiveTab('attendance')} className={activeTab === 'attendance' ? 'text-indigo-400 font-bold' : 'text-slate-400'}>Посещаемость</button>
+          <button onClick={() => setActiveTab('ranking')} className={activeTab === 'ranking' ? 'text-indigo-400 font-bold' : 'text-slate-400'}>Рейтинг</button>
+        </div>
+      </div>
 
       <main className="p-4 md:p-8 max-w-6xl mx-auto">
         <header className="flex justify-between items-center mb-8">
@@ -98,7 +148,7 @@ export default function App() {
             <p className="text-xs text-slate-400">Class Control</p>
           </div>
           <span className="text-xs px-3 py-1 bg-indigo-950 text-indigo-300 border border-indigo-800 rounded-lg">
-            Роль: {role}
+            Текущая роль: {role}
           </span>
         </header>
 
@@ -174,6 +224,34 @@ export default function App() {
         </div>
       </main>
 
+      {/* Модальное окно пароля */}
+      {showPassModal && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50">
+          <div className="bg-[#111827] border border-slate-800 p-6 rounded-2xl max-w-xs w-full text-center">
+            <Lock className="w-8 h-8 text-indigo-400 mx-auto mb-3" />
+            <h3 className="text-lg font-bold mb-1">Доступ ограничен</h3>
+            <p className="text-xs text-slate-400 mb-4">Введите ПИН-код для роли {targetRole === 'STAROSTA' ? 'Старосты' : 'Учителя'}</p>
+            <input
+              type="password"
+              value={pinInput}
+              onChange={e => setPinInput(e.target.value)}
+              placeholder="ПИН-код"
+              className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-center text-lg tracking-widest text-slate-100 mb-2 focus:outline-none focus:border-indigo-500"
+            />
+            {pinError && <p className="text-xs text-rose-500 mb-3">Неверный ПИН-код!</p>}
+            <div className="flex justify-end space-x-2 mt-4">
+              <button onClick={() => setShowPassModal(false)} className="w-1/2 py-2 bg-slate-800 text-slate-300 rounded-xl text-xs">
+                Отмена
+              </button>
+              <button onClick={verifyPin} className="w-1/2 py-2 bg-indigo-600 text-white rounded-xl text-xs font-semibold">
+                Войти
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Модальное окно объяснительной */}
       {selectedStudent && (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50">
           <div className="bg-[#111827] border border-slate-800 p-6 rounded-2xl max-w-md w-full">
